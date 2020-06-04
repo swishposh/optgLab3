@@ -10,6 +10,11 @@ var clock = new THREE.Clock();
 
 var N = 256;
 
+var parrotPath;
+
+//var spotlight = new THREE.DirectionalLight(0xffff00);
+var pspotlight = new THREE.PointLight(0xffff00);
+
 //глобальные служебные переменные для хранения списка анимаций
 var mixer, morphs = [];
 
@@ -34,7 +39,7 @@ function init()
         45, window.innerWidth / window.innerHeight, 1, 4000 );     
  
     // Установка позиции камеры     
-    camera.position.set(N/2, N/2, N*1.5);          
+    camera.position.set(N/2, N*1.5, N/2);          
     // Установка точки, на которую камера будет смотреть     
     camera.lookAt(new THREE.Vector3( N/2,  0.0, N/2));   
  
@@ -54,15 +59,17 @@ function init()
     
     //свет
     var spotlight = new THREE.DirectionalLight(0xffff00);
+    //var spotlight = new THREE.PointLight(0xffff00);
     //position
     spotlight.position.set(N, N*2, N/2);
 
 
-    var targetObject = new THREE.Object3D();
-    targetObject.position.set( N, 0, N );
-    scene.add(targetObject);
+    //var targetObject = new THREE.Object3D();
+    spotlight.target = new THREE.Object3D();
+    spotlight.target.position.set( N/2, 0, N/2 );
+    scene.add(spotlight.target);
 
-    spotlight.target = targetObject;
+    //spotlight.target = targetObject;
    
     // направление освещения
     //spotlight.target.position.set( 0, 0, 0 );
@@ -71,21 +78,22 @@ function init()
     // включение расчёта теней
     spotlight.castShadow = true;
     // параметры области расчёта теней
-    spotlight.shadow.camera.near = 500;
-    spotlight.shadow.camera.far = 4000;
-    spotlight.shadow.camera.fov = 45;
+    ////spotlight.shadow.camera.near = 500;
+    ////spotlight.shadow.camera.far = 4000;
+    ////spotlight.shadow.camera.fov = 45;
 
-    //spotlight.shadow = new THREE.LightShadow( 
-        //new THREE.PerspectiveCamera( 50, 1, 1200, 2500 ) );
-        //spotlight.shadow.bias = 0.0001;
+    spotlight.shadow = new THREE.LightShadow( 
+        new THREE.PerspectiveCamera( 60, 1, 10, 1000 ) );
+        spotlight.shadow.bias = 0.0001;
 
 
     // размер карты теней
-    spotlight.shadow.mapSize.width = 2048;
-    spotlight.shadow.mapSize.height = 2048;
+    spotlight.shadow.mapSize.width = 4096;
+    spotlight.shadow.mapSize.height = 4096;
 
     //add
     scene.add(spotlight);
+    scene.add(pspotlight);
 
     var helper = new THREE.CameraHelper(spotlight.shadow.camera);
     scene.add( helper );
@@ -114,6 +122,8 @@ function init()
         loadModel('models/static/', "Palma001.obj", "Palma001.mtl");
 
         loadAnimatedModel( 'models/animated/Parrot.glb' );
+
+        parrotPath = addT();
     }
     // Загрузка изображения с картой высот 
     img.src = 'pics/plateau.jpg';
@@ -163,8 +173,8 @@ function terrainGen()
     var loader = new THREE.TextureLoader();
     var tex = loader.load( 'pics/grasstile.jpg' );
 
-    //tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    //tex.repeat.set(2, 2);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 2);
         
     var mat = new THREE.MeshLambertMaterial
     ({    
@@ -190,17 +200,55 @@ function onWindowResize()
     renderer.setSize( window.innerWidth, window.innerHeight );
 }
 
+
+var T = 10.0;
+var t = 0.0;
+var followParrot = true;
 function animate()
 {
     // воспроизведение анимаций (в функции animate)
     var delta = clock.getDelta();
 
+    t += delta;
+
     mixer.update( delta );
 
-    //for ( var i = 0; i < morphs.length; i ++ )
-    //{
-        //var morph = morphs[ i ];
-    //}
+    for ( var i = 0; i < morphs.length; i ++ )
+    {
+        var morph = morphs[ i ];
+
+        var pos = new THREE.Vector3();
+        if (t >= T) t = 0.0;
+            pos.copy(parrotPath.getPointAt(t/T));
+
+        morph.position.copy(pos);
+
+        if ((t +0.001) >= T) t = 0.0;
+        var nextPoint = new THREE.Vector3();
+        nextPoint.copy(parrotPath.getPointAt((t+0.001)/T));
+
+        morph.lookAt(nextPoint);
+
+        if (followParrot == true)
+        {
+            // установка смещения камеры относительно объекта
+            var relativeCameraOffset = new THREE.Vector3(0,90,-100);
+            var m1 = new THREE.Matrix4();
+            var m2 = new THREE.Matrix4();
+
+            // получение поворота объекта
+            m1.extractRotation(morph.matrixWorld);
+            // получение позиции объекта
+            m2.extractPosition(morph.matrixWorld);
+            m1.multiplyMatrices(m2, m1);
+
+            // получение смещения позиции камеры относительно объекта
+            var cameraOffset = relativeCameraOffset.applyMatrix4(m1);
+            // установка позиции и направления взгляда камеры
+            camera.position.copy(cameraOffset);
+            camera.lookAt(morph.position );
+        }
+    }
 
     // Добавление функции на вызов, при перерисовки браузером страницы 
     requestAnimationFrame( animate ); 
@@ -301,4 +349,47 @@ function loadAnimatedModel(path) //где path – путь и название 
         scene.add( mesh );
         morphs.push( mesh );
     } );
+}
+
+
+function addT()
+{
+
+    var curve = new THREE.CubicBezierCurve3(
+        new THREE.Vector3( 100, 50, 128 ), //P0
+        new THREE.Vector3( 100, 50, 28 ), //P1
+        new THREE.Vector3( 200, 50, 28 ), //P2
+        new THREE.Vector3( 200, 50, 128 ) //P3
+       );
+
+    var curve2 = new THREE.CubicBezierCurve3(
+        new THREE.Vector3( 200, 50, 128 ), //P3
+        new THREE.Vector3( 200, 50, 228 ), //P2
+        new THREE.Vector3( 100, 50, 228 ), //P1
+        new THREE.Vector3( 100, 50, 128 ) //P0
+       );
+       
+       
+       var vertices = [];
+       // получение 20-ти точек на заданной кривой
+       vertices = curve.getPoints( 20 );
+       vertices = vertices.concat(curve2.getPoints( 20 ));
+
+
+       // создание кривой по списку точек
+       var path = new THREE.CatmullRomCurve3(vertices);
+       
+       // является ли кривая замкнутой (зацикленной)
+       path.closed = true;
+
+
+       vertices = path.getPoints( 500 );
+
+       var geometry = new THREE.Geometry();
+       geometry.vertices = vertices;
+       var material = new THREE.LineBasicMaterial( { color : 0xffff00 } );
+       var curveObject = new THREE.Line( geometry, material );
+       scene.add(curveObject);
+
+       return path;
 }
