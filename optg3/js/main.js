@@ -1,5 +1,7 @@
 // Ссылка на элемент веб страницы в котором будет отображаться графика 
 var container; 
+
+var keyboard = new THREEx.KeyboardState(); 
  
 // Переменные "камера", "сцена" и "отрисовщик" 
 var camera, scene, renderer;
@@ -11,9 +13,17 @@ var clock = new THREE.Clock();
 var N = 256;
 
 var parrotPath;
+var flamingoPath;
+
+var T = 10.0;
+var t = 0.0;
+var followParrot = false;
+
+var flamingo;
+var axisY = new THREE.Vector3(0, 1, 0);
 
 //var spotlight = new THREE.DirectionalLight(0xffff00);
-var pspotlight = new THREE.PointLight(0xffff00);
+var pspotlight = new THREE.PointLight(0xffff00, 1, 100, 1);
 
 //глобальные служебные переменные для хранения списка анимаций
 var mixer, morphs = [];
@@ -121,9 +131,12 @@ function init()
         // вызов функции загрузки модели (в функции Init)
         loadModel('models/static/', "Palma001.obj", "Palma001.mtl");
 
-        loadAnimatedModel( 'models/animated/Parrot.glb' );
+        loadAnimatedModel( 'models/animated/Parrot.glb', false );
+        flamingo = loadAnimatedModel( 'models/animated/Flamingo.glb', true );
 
         parrotPath = addT();
+
+        flamingoPath = addT2();
     }
     // Загрузка изображения с картой высот 
     img.src = 'pics/plateau.jpg';
@@ -190,6 +203,8 @@ function terrainGen()
     mesh.receiveShadow = true;
 
     scene.add(mesh);
+
+    sky();
 }
 
 function onWindowResize()
@@ -201,9 +216,7 @@ function onWindowResize()
 }
 
 
-var T = 10.0;
-var t = 0.0;
-var followParrot = true;
+
 function animate()
 {
     // воспроизведение анимаций (в функции animate)
@@ -220,14 +233,19 @@ function animate()
         var pos = new THREE.Vector3();
         if (t >= T) t = 0.0;
             pos.copy(parrotPath.getPointAt(t/T));
+            //pos.copy(flamingoPath.getPointAt(t/T));
+            morph.position.copy(pos);
 
-        morph.position.copy(pos);
+            pspotlight.position.copy(pos);    
 
         if ((t +0.001) >= T) t = 0.0;
         var nextPoint = new THREE.Vector3();
         nextPoint.copy(parrotPath.getPointAt((t+0.001)/T));
+        //nextPoint.copy(flamingoPath.getPointAt((t+0.001)/T));
 
         morph.lookAt(nextPoint);
+
+        
 
         if (followParrot == true)
         {
@@ -248,7 +266,55 @@ function animate()
             camera.position.copy(cameraOffset);
             camera.lookAt(morph.position );
         }
+
+
+        if (flamingo == true)
+        {
+            // установка смещения камеры относительно объекта
+            var relativeCameraOffset = new THREE.Vector3(0,90,-100);
+            var m1 = new THREE.Matrix4();
+            var m2 = new THREE.Matrix4();
+
+            // получение поворота объекта
+            m1.extractRotation(flamingo.matrixWorld);
+            // получение позиции объекта
+            m2.copyPosition(flamingo.matrixWorld);
+            m1.multiplyMatrices(m2, m1);
+
+            // получение смещения позиции камеры относительно объекта
+            var cameraOffset = relativeCameraOffset.applyMatrix4(m1);
+            // установка позиции и направления взгляда камеры
+            camera.position.copy(cameraOffset);
+            camera.lookAt(flamingo.position );
+
+            flamingo.translateZ(50 * delta);
+
+        }
+            //if (keyboard.pressed("a")) 
+            //{
+                //перенос вдоль оси, заданной вектором в локальных координатах 
+                //flamingo.rotateOnAxis(axisY, Math.PI/30.0); 
+            //}
+            //if (keyboard.pressed("d")) 
+            //{
+                //flamingo.rotateOnAxis(axisY, -Math.PI/30.0); 
+            //}
+        
     }
+
+
+
+    if (keyboard.pressed("1"))
+    {
+        followParrot = true;
+        flamingo = false;
+    }
+
+    if (keyboard.pressed("2"))
+    {
+        followParrot = false;
+        flamingo = true;
+    }    
 
     // Добавление функции на вызов, при перерисовки браузером страницы 
     requestAnimationFrame( animate ); 
@@ -327,7 +393,7 @@ function loadModel(path, oname, mname)
 }
 
 
-function loadAnimatedModel(path) //где path – путь и название модели
+function loadAnimatedModel(path, controlled) //где path – путь и название модели
 {
     var loader = new THREE.GLTFLoader();
 
@@ -347,7 +413,11 @@ function loadAnimatedModel(path) //где path – путь и название 
         mesh.receiveShadow = true;
 
         scene.add( mesh );
-        morphs.push( mesh );
+        if (controlled == false)
+            morphs.push( mesh );
+        else
+            flamingo = mesh;  
+        //return mesh;    
     } );
 }
 
@@ -392,4 +462,69 @@ function addT()
        scene.add(curveObject);
 
        return path;
+}
+
+function addT2()
+{
+
+    var curve = new THREE.CubicBezierCurve3(
+        new THREE.Vector3( 100, 150, 128 ), //P0
+        new THREE.Vector3( 100, 150, 28 ), //P1
+        new THREE.Vector3( 200, 150, 28 ), //P2
+        new THREE.Vector3( 200, 150, 128 ) //P3
+       );
+
+    var curve2 = new THREE.CubicBezierCurve3(
+        new THREE.Vector3( 200, 150, 128 ), //P3
+        new THREE.Vector3( 200, 150, 228 ), //P2
+        new THREE.Vector3( 100, 150, 228 ), //P1
+        new THREE.Vector3( 100, 150, 128 ) //P0
+       );
+       
+       
+       var vertices = [];
+       // получение 20-ти точек на заданной кривой
+       vertices = curve.getPoints( 20 );
+       vertices = vertices.concat(curve2.getPoints( 20 ));
+
+
+       // создание кривой по списку точек
+       var path = new THREE.CatmullRomCurve3(vertices);
+       
+       // является ли кривая замкнутой (зацикленной)
+       path.closed = true;
+
+
+       vertices = path.getPoints( 500 );
+
+       var geometry = new THREE.Geometry();
+       geometry.vertices = vertices;
+       var material = new THREE.LineBasicMaterial( { color : 0xffffff } );
+       var curveObject = new THREE.Line( geometry, material );
+       scene.add(curveObject);
+
+       return path;
+}
+
+
+function sky()
+{
+  // Создание загрузчика текстур
+  var loader = new THREE.TextureLoader();
+  //создание геометрии сферы
+  var geometry = new THREE.SphereGeometry( 600, 32, 32 );
+  //загрузка текстуры
+  var tex = loader.load( "pics/sky5.jpg" );
+  tex.minFilter = THREE.NearestFilter;
+  //создание материала
+  var material = new THREE.MeshBasicMaterial({
+  map: tex,
+  side: THREE.DoubleSide
+  });
+  var sphere = new THREE.Mesh( geometry, material );
+  
+  sphere.position.set(0, 0, 0);
+
+  //размещение объекта в сцене
+  scene.add( sphere );
 }
