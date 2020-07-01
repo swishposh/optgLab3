@@ -19,8 +19,12 @@ var T = 10.0;
 var t = 0.0;
 var followParrot = false;
 
+var followFlamingo = false;
+
 var flamingo;
 var axisY = new THREE.Vector3(0, 1, 0);
+
+//var parrot;
 
 //var spotlight = new THREE.DirectionalLight(0xffff00);
 var pspotlight = new THREE.PointLight(0xffff00, 1, 100, 1);
@@ -132,7 +136,7 @@ function init()
         loadModel('models/static/', "Palma001.obj", "Palma001.mtl");
 
         loadAnimatedModel( 'models/animated/Parrot.glb', false );
-        flamingo = loadAnimatedModel( 'models/animated/Flamingo.glb', true );
+        flamingo = loadAnimatedModel( 'models/animated/Flamingo.glb', false );
 
         parrotPath = addT();
 
@@ -228,20 +232,25 @@ function animate()
 
     for ( var i = 0; i < morphs.length; i ++ )
     {
+        
         var morph = morphs[ i ];
-
+        console.log(morph);
         var pos = new THREE.Vector3();
         if (t >= T) t = 0.0;
+        if (morph.id == 21)
             pos.copy(parrotPath.getPointAt(t/T));
-            //pos.copy(flamingoPath.getPointAt(t/T));
-            morph.position.copy(pos);
+            else
+            pos.copy(flamingoPath.getPointAt(t/T));
 
+            morph.position.copy(pos);
             pspotlight.position.copy(pos);    
 
         if ((t +0.001) >= T) t = 0.0;
         var nextPoint = new THREE.Vector3();
-        nextPoint.copy(parrotPath.getPointAt((t+0.001)/T));
-        //nextPoint.copy(flamingoPath.getPointAt((t+0.001)/T));
+        if (morph.id == 21)
+        nextPoint.copy(parrotPath.getPointAt((t+0.001)/T));  
+        else
+        nextPoint.copy(flamingoPath.getPointAt((t+0.001)/T));
 
         morph.lookAt(nextPoint);
 
@@ -268,7 +277,7 @@ function animate()
         }
 
 
-        if (flamingo == true)
+        if (followFlamingo == true)
         {
             // установка смещения камеры относительно объекта
             var relativeCameraOffset = new THREE.Vector3(0,90,-100);
@@ -287,7 +296,7 @@ function animate()
             camera.position.copy(cameraOffset);
             camera.lookAt(flamingo.position );
 
-            flamingo.translateZ(50 * delta);
+            //flamingo.translateZ(50 * delta);
 
         }
             //if (keyboard.pressed("a")) 
@@ -307,13 +316,13 @@ function animate()
     if (keyboard.pressed("1"))
     {
         followParrot = true;
-        flamingo = false;
+        followFlamingo = false;
     }
 
     if (keyboard.pressed("2"))
     {
         followParrot = false;
-        flamingo = true;
+        followFlamingo = true;
     }    
 
     // Добавление функции на вызов, при перерисовки браузером страницы 
