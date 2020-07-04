@@ -19,12 +19,8 @@ var T = 10.0;
 var t = 0.0;
 var followParrot = false;
 
-var followFlamingo = false;
-
 var flamingo;
 var axisY = new THREE.Vector3(0, 1, 0);
-
-//var parrot;
 
 //var spotlight = new THREE.DirectionalLight(0xffff00);
 var pspotlight = new THREE.PointLight(0xffff00, 1, 100, 1);
@@ -136,7 +132,7 @@ function init()
         loadModel('models/static/', "Palma001.obj", "Palma001.mtl");
 
         loadAnimatedModel( 'models/animated/Parrot.glb', false );
-        flamingo = loadAnimatedModel( 'models/animated/Flamingo.glb', false );
+         loadAnimatedModel( 'models/animated/Flamingo.glb', false );
 
         parrotPath = addT();
 
@@ -264,20 +260,20 @@ function animate()
             var m2 = new THREE.Matrix4();
 
             // получение поворота объекта
-            m1.extractRotation(morph.matrixWorld);
+            m1.extractRotation(morphs[0].matrixWorld);
             // получение позиции объекта
-            m2.extractPosition(morph.matrixWorld);
+            m2.extractPosition(morphs[0].matrixWorld);
             m1.multiplyMatrices(m2, m1);
 
             // получение смещения позиции камеры относительно объекта
             var cameraOffset = relativeCameraOffset.applyMatrix4(m1);
             // установка позиции и направления взгляда камеры
             camera.position.copy(cameraOffset);
-            camera.lookAt(morph.position );
+            camera.lookAt(morphs[0].position );
         }
 
 
-        if (followFlamingo == true)
+        if (flamingo == true)
         {
             // установка смещения камеры относительно объекта
             var relativeCameraOffset = new THREE.Vector3(0,90,-100);
@@ -285,18 +281,18 @@ function animate()
             var m2 = new THREE.Matrix4();
 
             // получение поворота объекта
-            m1.extractRotation(flamingo.matrixWorld);
+            m1.extractRotation(morphs[1].matrixWorld);
             // получение позиции объекта
-            m2.copyPosition(flamingo.matrixWorld);
+            m2.copyPosition(morphs[1].matrixWorld);
             m1.multiplyMatrices(m2, m1);
 
             // получение смещения позиции камеры относительно объекта
             var cameraOffset = relativeCameraOffset.applyMatrix4(m1);
             // установка позиции и направления взгляда камеры
             camera.position.copy(cameraOffset);
-            camera.lookAt(flamingo.position );
+            camera.lookAt(morphs[1].position );
 
-            //flamingo.translateZ(50 * delta);
+           // morph.translateZ(50 * delta);
 
         }
             //if (keyboard.pressed("a")) 
@@ -316,13 +312,13 @@ function animate()
     if (keyboard.pressed("1"))
     {
         followParrot = true;
-        followFlamingo = false;
+        flamingo = false;
     }
 
     if (keyboard.pressed("2"))
     {
         followParrot = false;
-        followFlamingo = true;
+        flamingo = true;
     }    
 
     // Добавление функции на вызов, при перерисовки браузером страницы 
